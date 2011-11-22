@@ -1,0 +1,48 @@
+//Cg
+//Cg profile arbvp1 arbfp1
+
+void vshader(float4 vtx_position   : POSITION,
+             float3 vtx_normal     : NORMAL,
+             float4 vtx_color      : COLOR,
+             out float4 l_position : POSITION,
+             out float4 l_brite,
+             out float4 l_color    : COLOR,
+             uniform float4 attr_color,
+             uniform float4 mspos_light,
+             uniform float4x4 mat_modelproj)
+{
+  l_position = mul(mat_modelproj, vtx_position);
+  float3 N = normalize(vtx_normal);
+  float3 lightVector = normalize(mspos_light - vtx_position);
+  l_brite = max(dot(N,lightVector), 0);
+  if (attr_color.r != 1.0 || attr_color.g != 1.0 || attr_color.b != 1.0)
+    l_color = (float4)attr_color;
+  else
+    l_color = vtx_color;
+}
+
+
+void fshader(uniform float4 k_min,
+             uniform float4 k_max,
+             uniform float4 k_steps,
+             float4 l_brite,
+             float4 l_color : COLOR,
+             out float4 o_color : COLOR)
+{
+  float min = k_min.x;
+  float max = k_max.x;
+  float steps = k_steps.x;
+  float n = 0.0;
+  
+  if (steps == 0.0)
+    l_brite = min;
+  else if (l_brite.x >= max)
+    l_brite = max;
+  else
+  {
+    n = floor(l_brite.x * (steps + 1.0));
+    l_brite = (n * ((max - min) / steps) + min);
+  }
+  
+  o_color = l_brite * l_color;
+}
