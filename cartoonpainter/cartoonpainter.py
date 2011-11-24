@@ -6,12 +6,12 @@ from panda3d.core import NodePath
 from panda3d.core import Vec4
 
 class CartoonPainter(object):
-    """Paint a nodepath whit cartoon shading and inking.
+    """Paint just a specific nodepath whit cartoon shading and inking. This is
+    good for creating interesting scene where only few objects look cartoonized.
     
-    Apply cartoon shading and inking only to certain nodepaths of the scene.
-    To achieve this effect the class creates two extra display regions where
+    To achieve the effect, this class creates two extra display regions where
     the cartoonized nodepaths are drawn into. These regions are connected to
-    two new scenes, namely toon_render (for objects with toon shading) and 
+    two scenes called toon_render (for objects with toon shading) and 
     inking_render2d (for the objects black outlines).
     
     These regions has to be drawn before the main scene in render. You can
@@ -19,11 +19,25 @@ class CartoonPainter(object):
     parameter is the sort value for the region of inking_render2d; the region
     of toon_render comes right after (sort - 1).
     
-    When you paint a nodepath you actually create an instance under toon_render.
-    The original nodepath will be stashed but still retain its parent hierarchy
-    under render and therefore its global transform. The CartoonPainter will
-    take care of synchronizing position and rotation of the instances under
-    toon_render.
+    You can cartoon paint a model even when it's deeply nested into any nodes
+    hierarchy of your main scene. When you paint a nodepath you actually create
+    an instance under toon_render. The original nodepath will be stashed but
+    still retain its parents hierarchy under render and therefore its global
+    transform. The CartoonPainter will take care of synchronizing position and
+    rotation of the instances under toon_render.
+    
+    Limitations:
+      * Cartoon shading doesn't not apply to transparent models.
+      * Cartoon shading doesn't not apply to textured models. It works only
+        for vertex and flat colored models.
+      * Ink outlines are not affected by fog.
+    
+    Bugs:
+      * A glgsg error is printed out when you exit your Panda script:
+        (glGraphicsBuffer_src.cxx, line 1020: GL error 1282). Perhaps the
+        normals buffer has to be destroyed before exiting?
+      * On my old machine with Intel integrated graphics card the CartoonPainter
+        crashes my Panda script.
     """
     
     DEFAULT_STEPFUNC_MIN = 0.8
@@ -198,6 +212,17 @@ class CartoonPainter(object):
             self.toon_render.setShaderInput('min', Vec4(self._stepf_min))
             self.toon_render.setShaderInput('max', Vec4(self._stepf_max))
             self.toon_render.setShaderInput('steps', Vec4(self._stepf_steps))
+
+    def enable(self):
+        """Enable the cartoon painter."""
+        if self._shaders_supported:
+            self._enabled = True
+    
+    def disable(self):
+        """Disable the cartoon painter. It will not undo nodepaths already
+        painted.
+        """
+        self._enabled = False
     
     def paint(self, nodepath):
         """Paint a nodepath with cartoon shading and inking."""
@@ -215,17 +240,6 @@ class CartoonPainter(object):
                 _inp = self._paintings.pop(nodepath)
                 _inp.removeNode()
                 nodepath.unstash()
-    
-    def enable(self):
-        """Enable the cartoon painter."""
-        if self._shaders_supported:
-            self._enabled = True
-    
-    def disable(self):
-        """Disable the cartoon painter. It will not undo nodepaths already
-        painted.
-        """
-        self._enabled = False
     
     def camera_spot_light(self, bool):
         """Enable or disable camera spot light effect. When enabled the shader
